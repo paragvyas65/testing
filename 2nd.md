@@ -63,55 +63,88 @@ The following diagram illustrates the end-to-end control plane, ingestion tier, 
 
 ```mermaid
 graph TD
-    subgraph "Enterprise Identity & Automation (Control Plane)"
-        Entra[Azure Entra ID<br/>Security Groups]
-        TF[Terraform Cloud<br/>IaC Execution]
-        GH[GitHub / GitOps<br/>Configuration & CODEOWNERS]
+    %% User Personas
+    subgraph "User & Identity Tier"
+        Dev[Product Developers<br/>View ONLY their product]
+        SRE[DevOps & SRE<br/>Cross-product operational view]
+        VP[VP / P&L Owners<br/>Cost Showback & Billing]
+        Entra[Azure Entra ID<br/>SSO & Security Groups]
         
-        GH -- "Approval Workflow triggers" --> TF
-        TF -- "Syncs identity from" --> Entra
+        Dev --> Entra
+        SRE --> Entra
+        VP --> Entra
     end
 
-    subgraph "Telemetry Ingestion Tier"
-        AlloyLend[Grafana Alloy Collector<br/>Enforces Labels: bu=lend, product=laserpro, env=prod]
-        AlloyPay[Grafana Alloy Collector<br/>Enforces Labels: bu=pay, product=pay2go, env=dev]
+    %% GitOps Automation
+    subgraph "GitOps Control Plane (Zero Click-Ops)"
+        GH[GitHub Repositories<br/>CODEOWNERS Approvals]
+        TFC[Terraform Cloud<br/>Stateful Provisioning]
+        AKV[Azure Key Vault<br/>Secrets Management]
+        
+        GH -- "On PR Merge" --> TFC
+        TFC -- "Fetches Secrets" --> AKV
+        TFC -- "Syncs Groups" --> Entra
     end
 
-    subgraph "Grafana Cloud (Finastra Global Org)"
-        TF -- "Provisions Stacks, Folders, RBAC, LBAC" --> Org
+    %% Telemetry Sources
+    subgraph "Telemetry Ingestion (With Enforced Taxonomy)"
+        AKS_L[AKS Clusters (LaserPro)<br/>Labels: bu=lend, env=prod/dev]
+        VM_P[Azure VMs (Pay2Go)<br/>Labels: bu=pay, env=prod]
+        DB_U[Databases (Universal Banking)<br/>Labels: bu=ubnk, env=stage]
+        
+        Alloy[Grafana Alloy Collectors<br/>Enforces Label Discipline]
+        AKS_L --> Alloy
+        VM_P --> Alloy
+        DB_U --> Alloy
+    end
+
+    %% Grafana Cloud
+    subgraph "Grafana Cloud SaaS (Finastra Global Org)"
+        TFC -- "Provisions API (Stacks, Folders, RBAC, LBAC)" --> Org
         
         subgraph Org [Single Finastra Organization]
-            subgraph StackLend [Lending BU Stack: AZR-C03-LEND-0001]
-                LBACLend[LBAC Engine: Filters by 'product' label]
-                FoldLaser[Folder: LaserPro<br/>Dashboards & Alerts]
-                FoldLoan[Folder: LoanIQ<br/>Dashboards & Alerts]
-                
-                LBACLend -. "Isolates Data" .-> FoldLaser
-                LBACLend -. "Isolates Data" .-> FoldLoan
+            
+            subgraph StackL[Lending BU Stack: AZR-C03-LEND-0001]
+                LBAC_L[LBAC: Enforces 'product' isolation]
+                F_Laser[Folder: LaserPro<br/>Dashboards & Alerts (Cross-Tier)]
+                F_Loan[Folder: LoanIQ<br/>Dashboards & Alerts]
+                LBAC_L -.-> F_Laser & F_Loan
             end
             
-            subgraph StackPay [Payment BU Stack: AZR-C03-PAYM-0001]
-                LBACPay[LBAC Engine: Filters by 'product' label]
-                FoldPay2Go[Folder: Pay2Go<br/>Dashboards & Alerts]
+            subgraph StackP[Payment BU Stack: AZR-C03-PAYM-0001]
+                LBAC_P[LBAC: Enforces 'product' isolation]
+                F_Pay[Folder: Pay2Go<br/>Dashboards & Alerts]
+                F_Global[Folder: GlobalPay<br/>Dashboards & Alerts]
+                LBAC_P -.-> F_Pay & F_Global
+            end
+            
+            subgraph StackS[Shared Services / Central Stack]
+                F_Billing[Folder: Central Billing<br/>Cost Attribution filterable by 'product']
             end
         end
     end
 
-    AlloyLend -- "OTLP Push" --> StackLend
-    AlloyPay -- "OTLP Push" --> StackPay
-    Entra -- "SAML/OIDC RBAC Mapping" --> Org
+    %% Data flow
+    Alloy -- "OTLP (Metrics, Logs, Traces)" --> StackL
+    Alloy -- "OTLP (Metrics, Logs, Traces)" --> StackP
+    
+    %% Access Flow
+    Entra -. "Maps to RBAC/LBAC rules" .-> Org
 
+    %% Styling
+    classDef users fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#000;
     classDef control fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000;
     classDef ingestion fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px,color:#000;
     classDef cloud fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px,color:#000;
     classDef stack fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000;
     classDef folder fill:#ffffff,stroke:#424242,stroke-width:2px,stroke-dasharray: 5 5;
-    
-    class Entra,TF,GH control;
-    class AlloyLend,AlloyPay ingestion;
+
+    class Dev,SRE,VP users;
+    class Entra,GH,TFC,AKV control;
+    class AKS_L,VM_P,DB_U,Alloy ingestion;
     class Org cloud;
-    class StackLend,StackPay stack;
-    class FoldLaser,FoldLoan,FoldPay2Go,LBACLend,LBACPay folder;
+    class StackL,StackP,StackS stack;
+    class F_Laser,F_Loan,F_Pay,F_Global,F_Billing,LBAC_L,LBAC_P folder;
 ```
 
 ### Org structure
