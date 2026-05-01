@@ -65,10 +65,10 @@ The following diagram illustrates the end-to-end control plane, ingestion tier, 
 graph TD
     %% User Personas
     subgraph "User & Identity Tier"
-        Dev[Product Developers<br/>View ONLY their product]
-        SRE[DevOps & SRE<br/>Cross-product operational view]
-        VP[VP / P&L Owners<br/>Cost Showback & Billing]
-        Entra[Azure Entra ID<br/>SSO & Security Groups]
+        Dev["Product Developers<br/>View ONLY their product"]
+        SRE["DevOps & SRE<br/>Cross-product operational view"]
+        VP["VP / P&L Owners<br/>Cost Showback & Billing"]
+        Entra["Azure Entra ID<br/>SSO & Security Groups"]
         
         Dev --> Entra
         SRE --> Entra
@@ -77,9 +77,9 @@ graph TD
 
     %% GitOps Automation
     subgraph "GitOps Control Plane (Zero Click-Ops)"
-        GH[GitHub Repositories<br/>CODEOWNERS Approvals]
-        TFC[Terraform Cloud<br/>Stateful Provisioning]
-        AKV[Azure Key Vault<br/>Secrets Management]
+        GH["GitHub Repositories<br/>CODEOWNERS Approvals"]
+        TFC["Terraform Cloud<br/>Stateful Provisioning"]
+        AKV["Azure Key Vault<br/>Secrets Management"]
         
         GH -- "On PR Merge" --> TFC
         TFC -- "Fetches Secrets" --> AKV
@@ -88,11 +88,11 @@ graph TD
 
     %% Telemetry Sources
     subgraph "Telemetry Ingestion (With Enforced Taxonomy)"
-        AKS_L[AKS Clusters (LaserPro)<br/>Labels: bu=lend, env=prod/dev]
-        VM_P[Azure VMs (Pay2Go)<br/>Labels: bu=pay, env=prod]
-        DB_U[Databases (Universal Banking)<br/>Labels: bu=ubnk, env=stage]
+        AKS_L["AKS Clusters (LaserPro)<br/>Labels: bu=lend, env=prod/dev"]
+        VM_P["Azure VMs (Pay2Go)<br/>Labels: bu=pay, env=prod"]
+        DB_U["Databases (Universal Banking)<br/>Labels: bu=ubnk, env=stage"]
         
-        Alloy[Grafana Alloy Collectors<br/>Enforces Label Discipline]
+        Alloy["Grafana Alloy Collectors<br/>Enforces Label Discipline"]
         AKS_L --> Alloy
         VM_P --> Alloy
         DB_U --> Alloy
@@ -105,21 +105,21 @@ graph TD
         subgraph Org [Single Finastra Organization]
             
             subgraph StackL[Lending BU Stack: AZR-C03-LEND-0001]
-                LBAC_L[LBAC: Enforces 'product' isolation]
-                F_Laser[Folder: LaserPro<br/>Dashboards & Alerts (Cross-Tier)]
-                F_Loan[Folder: LoanIQ<br/>Dashboards & Alerts]
+                LBAC_L["LBAC: Enforces 'product' isolation"]
+                F_Laser["Folder: LaserPro<br/>Dashboards & Alerts (Cross-Tier)"]
+                F_Loan["Folder: LoanIQ<br/>Dashboards & Alerts"]
                 LBAC_L -.-> F_Laser & F_Loan
             end
             
             subgraph StackP[Payment BU Stack: AZR-C03-PAYM-0001]
-                LBAC_P[LBAC: Enforces 'product' isolation]
-                F_Pay[Folder: Pay2Go<br/>Dashboards & Alerts]
-                F_Global[Folder: GlobalPay<br/>Dashboards & Alerts]
+                LBAC_P["LBAC: Enforces 'product' isolation"]
+                F_Pay["Folder: Pay2Go<br/>Dashboards & Alerts"]
+                F_Global["Folder: GlobalPay<br/>Dashboards & Alerts"]
                 LBAC_P -.-> F_Pay & F_Global
             end
             
             subgraph StackS[Shared Services / Central Stack]
-                F_Billing[Folder: Central Billing<br/>Cost Attribution filterable by 'product']
+                F_Billing["Folder: Central Billing<br/>Cost Attribution filterable by 'product'"]
             end
         end
     end
