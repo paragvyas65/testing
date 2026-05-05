@@ -22,21 +22,21 @@
 - [How we teach this](#how-we-teach-this)
 - [Security Implications](#security-implications)
 
-## Summary
+## Executive Summary
 
-This Pattern (v2) evolves the Grafana Cloud stack management framework defined in Pattern 005. While Pattern 005 established excellent foundational principles (Single Finastra Org, GitOps workflow, Terraform automation), it utilized a **per-Product stack model** which has led to extreme operational sprawl (100+ stacks). 
+This Pattern (v2) evolves the Grafana Cloud stack management framework defined in Pattern 005. While Pattern 005 established excellent foundational principles (Single Finastra Org, GitOps workflow, Terraform automation), its implementation of a **per-Product stack model** has led to extreme operational sprawl, unsustainable Total Cost of Ownership (TCO), and fragmented observability. 
 
-This document proposes a **Business Unit (BU) aligned stack model**, consolidating the ecosystem into core BU stacks (e.g., Lending, Payment, Universal Banking). It leverages Grafana Folders, Role-Based Access Control (RBAC), and Label-Based Access Control (LBAC) to maintain strict product-level isolation and self-service, while drastically reducing operational overhead and fulfilling strict enterprise requirements around cost attribution, SRE access, and cross-tier environment visibility.
+This document outlines a strategic shift to a **Business Unit (BU) aligned stack model**, consolidating the ecosystem into core BU stacks (e.g., Lending, Payment, Universal Banking). This architecture leverages Grafana Folders, Role-Based Access Control (RBAC), and Label-Based Access Control (LBAC) to enforce strict enterprise-grade product isolation and autonomous self-service. Crucially, it drastically reduces operational overhead while fulfilling strict organizational requirements around cost attribution, SRE multi-tenant access, and cross-tier environment visibility.
 
-## Motivation
+## Strategic Rationale (Motivation)
 
-The initial implementation of Pattern 005's per-Product stacks resulted in a proliferation of Grafana Cloud stacks. This caused:
-- **Massive Operational Overhead:** Managing, updating, and governing 100+ individual stacks.
-- **Dashboard & Alert Duplication:** Common infrastructure dashboards had to be deployed and synced across 100+ instances.
-- **Complex SRE Access Management:** DevOps/SRE teams supporting multiple products required disparate roles mapped across dozens of isolated physical stacks.
-- **No Cross-Tier Views:** Physical stack separation made it difficult to build unified views across Dev/Stage/Prod environments.
+The initial implementation of Pattern 005's per-Product stacks resulted in an unmanageable proliferation of Grafana Cloud environments. This architecture debt caused:
+- **Massive Operational Overhead:** Governing, upgrading, and auditing 100+ individual stateful stacks is not scalable.
+- **Asset Duplication:** Common infrastructure dashboards (e.g., Kubernetes, Nodes) required deployment and synchronization across 100+ disparate instances.
+- **Complex SRE Access Management:** DevOps/SRE teams supporting multiple products required disparate roles mapped across dozens of isolated physical boundaries, increasing identity sprawl.
+- **Siloed Observability:** Physical stack separation inherently blocked cross-tier views (Dev/Stage/Prod) and made cross-product correlation within a BU impossible.
 
-By consolidating at the BU level, we maintain strict logical boundaries while unlocking massive operational efficiency and scalability.
+By consolidating physical boundaries to the Business Unit level, we mitigate the blast radius of misconfigurations while unlocking massive operational efficiency, scalability, and centralized governance.
 
 ### Goals & Requirements
 
@@ -56,6 +56,96 @@ Based on the architectural requirements established by the Observability Pod lea
 - Migrating PCI-DSS or heavily regulated environments that strictly require dedicated, physically isolated stacks (these remain explicitly defined exceptions).
 
 ## Detailed design
+
+### High-Level Architecture
+
+The following diagram illustrates the end-to-end control plane, ingestion tier, and cloud boundary for the BU-aligned model.
+
+```mermaid
+graph TD
+    %% User Personas
+    subgraph "User & Identity Tier"
+        Dev["Product Developers<br/>View ONLY their product"]
+        SRE["DevOps & SRE<br/>Cross-product operational view"]
+        VP["VP / P&L Owners<br/>Cost Showback & Billing"]
+        Entra["Azure Entra ID<br/>SSO & Security Groups"]
+        
+        Dev --> Entra
+        SRE --> Entra
+        VP --> Entra
+    end
+
+    %% GitOps Automation
+    subgraph "GitOps Control Plane (Zero Click-Ops)"
+        GH["GitHub Repositories<br/>CODEOWNERS Approvals"]
+        TFC["Terraform Cloud<br/>Stateful Provisioning"]
+        AKV["Azure Key Vault<br/>Secrets Management"]
+        
+        GH -- "On PR Merge" --> TFC
+        TFC -- "Fetches Secrets" --> AKV
+        TFC -- "Syncs Groups" --> Entra
+    end
+
+    %% Telemetry Sources
+    subgraph "Telemetry Ingestion (With Enforced Taxonomy)"
+        AKS_L["AKS Clusters (LaserPro)<br/>Labels: bu=lend, env=prod/dev"]
+        VM_P["Azure VMs (Pay2Go)<br/>Labels: bu=pay, env=prod"]
+        DB_U["Databases (Universal Banking)<br/>Labels: bu=ubnk, env=stage"]
+        
+        Alloy["Grafana Alloy Collectors<br/>Enforces Label Discipline"]
+        AKS_L --> Alloy
+        VM_P --> Alloy
+        DB_U --> Alloy
+    end
+
+    %% Grafana Cloud
+    subgraph "Grafana Cloud SaaS (Finastra Global Org)"
+        TFC -- "Provisions API (Stacks, Folders, RBAC, LBAC)" --> Org
+        
+        subgraph Org [Single Finastra Organization]
+            
+            subgraph StackL[Lending BU Stack: AZR-C03-LEND-0001]
+                LBAC_L["LBAC: Enforces 'product' isolation"]
+                F_Laser["Folder: LaserPro<br/>Dashboards & Alerts (Cross-Tier)"]
+                F_Loan["Folder: LoanIQ<br/>Dashboards & Alerts"]
+                LBAC_L -.-> F_Laser & F_Loan
+            end
+            
+            subgraph StackP[Payment BU Stack: AZR-C03-PAYM-0001]
+                LBAC_P["LBAC: Enforces 'product' isolation"]
+                F_Pay["Folder: Pay2Go<br/>Dashboards & Alerts"]
+                F_Global["Folder: GlobalPay<br/>Dashboards & Alerts"]
+                LBAC_P -.-> F_Pay & F_Global
+            end
+            
+            subgraph StackS[Shared Services / Central Stack]
+                F_Billing["Folder: Central Billing<br/>Cost Attribution filterable by 'product'"]
+            end
+        end
+    end
+
+    %% Data flow
+    Alloy -- "OTLP (Metrics, Logs, Traces)" --> StackL
+    Alloy -- "OTLP (Metrics, Logs, Traces)" --> StackP
+    
+    %% Access Flow
+    Entra -. "Maps to RBAC/LBAC rules" .-> Org
+
+    %% Styling
+    classDef users fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,color:#000;
+    classDef control fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,color:#000;
+    classDef ingestion fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px,color:#000;
+    classDef cloud fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px,color:#000;
+    classDef stack fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000;
+    classDef folder fill:#ffffff,stroke:#424242,stroke-width:2px,stroke-dasharray: 5 5;
+
+    class Dev,SRE,VP users;
+    class Entra,GH,TFC,AKV control;
+    class AKS_L,VM_P,DB_U,Alloy ingestion;
+    class Org cloud;
+    class StackL,StackP,StackS stack;
+    class F_Laser,F_Loan,F_Pay,F_Global,F_Billing,LBAC_L,LBAC_P folder;
+```
 
 ### Org structure
 
@@ -112,6 +202,16 @@ All ingested data MUST contain the following enforced taxonomy:
 - **Product Isolation:** LBAC policies generated by Terraform bind to Entra ID groups. A user in the LaserPro group gets an LBAC policy `{product="laserpro"}`. They physically cannot query data for `product="loaniq"`.
 - **Environment Isolation & Cross-Tier Views:** Because Dev, Stage, and Prod data for LaserPro reside in the same stack, they are logically separated by the `env` label. Dashboards default to `env="prod"` to prevent noise, but users can opt-in to cross-tier views by changing the dashboard variable to `env=~"prod|stage"`.
 - **Cross-Product SRE Access:** An SRE team supporting both LaserPro and Pay2Go is granted an LBAC policy `{product=~"laserpro|pay2go"}` and assigned RBAC to both product folders.
+
+### Centralized Alerting & Noise Reduction (Hardened Flow)
+
+Consolidating 100+ product stacks into a shared BU-aligned architecture centralizes the Alertmanager. Without strict controls, a poorly written `inhibit_rule` by one product team could inadvertently suppress critical alerts for another product team (cross-tenant suppression).
+
+To prevent this, the architecture implements a **Hardened Alertmanager Flow**:
+- **Family Isolation (`alert_family`):** All alerts are strictly categorized (e.g., `app-availability`, `custom-resource`). A critical alert in one family cannot inhibit alerts in another.
+- **Identity Matching (`equal` labels):** Inhibit rules strictly match on `namespace`, `cluster`, and `name`. This ensures Team A's critical database alert only suppresses Team A's minor database alerts, completely isolating Team B.
+- **Jira vs OnCall Separation:** Alerts generating Jira tickets (`notify: jira` with `priority` labels) are logically separated from OnCall paging alerts (`severity` labels) to prevent ticket rules from muting active pages.
+- **GitOps Enforcement:** The GitOps pipeline automatically rejects any alert rules that do not include the mandatory `namespace` and `alert_family` labels.
 
 ### Management
 
