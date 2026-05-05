@@ -223,7 +223,7 @@ graph TD
     subgraph Hardening[Hardened Alertmanager Flow]
         G1[Family Isolation<br/>alert_family label]
         G2[Identity Matching<br/>equal: namespace, cluster, name]
-        G3[Jira vs OnCall Separation<br/>notify=jira | severity=page]
+        G3[Jira vs OnCall Separation<br/>notify=jira or severity=page]
         G4[GitOps Enforcement<br/>CI rejects unlabeled rules]
     end
 
