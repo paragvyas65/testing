@@ -216,6 +216,37 @@ All ingested data MUST contain the following enforced taxonomy:
 
 Consolidating 100+ product stacks into a shared BU-aligned architecture centralizes the Alertmanager. Without strict controls, a poorly written `inhibit_rule` by one product team could inadvertently suppress critical alerts for another product team (cross-tenant suppression).
 
+```mermaid
+graph TD
+    Input[Alert Rule Submitted via PR]
+
+    subgraph Hardening[Hardened Alertmanager Flow]
+        G1[Family Isolation<br/>alert_family label]
+        G2[Identity Matching<br/>equal: namespace, cluster, name]
+        G3[Jira vs OnCall Separation<br/>notify=jira | severity=page]
+        G4[GitOps Enforcement<br/>CI rejects unlabeled rules]
+    end
+
+    Output[Tenant-Isolated Alert Delivery<br/>Cross-tenant suppression: structurally impossible]
+
+    Input --> G1
+    Input --> G2
+    Input --> G3
+    Input --> G4
+    G1 --> Output
+    G2 --> Output
+    G3 --> Output
+    G4 --> Output
+
+    classDef input fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px,color:#000;
+    classDef guardrail fill:#fff3e0,stroke:#e65100,stroke-width:2px,color:#000;
+    classDef output fill:#dae8fc,stroke:#0d47a1,stroke-width:2px,color:#000;
+
+    class Input input;
+    class G1,G2,G3,G4 guardrail;
+    class Output output;
+```
+
 To prevent this, the architecture implements a **Hardened Alertmanager Flow**:
 - **Family Isolation (`alert_family`):** All alerts are strictly categorized (e.g., `app-availability`, `custom-resource`). A critical alert in one family cannot inhibit alerts in another.
 - **Identity Matching (`equal` labels):** Inhibit rules strictly match on `namespace`, `cluster`, and `name`. This ensures Team A's critical database alert only suppresses Team A's minor database alerts, completely isolating Team B.
@@ -282,6 +313,26 @@ The repository layout is adjusted to group configurations by BU and then by Prod
 - **Single Finastra Global Stack:** Rejected due to guaranteed scaling limit breaches (active series limits) and excessive blast radius if configuration is corrupted.
 
 ## Adoption strategy
+
+```mermaid
+graph LR
+    P1[Phase 1<br/>Provision<br/>Week 1-2<br/>Risk: Low]
+    P2[Phase 2<br/>Update Collectors<br/>Week 3-6<br/>Risk: Medium]
+    P3[Phase 3<br/>Migrate Assets<br/>Week 7-10<br/>Risk: Medium]
+    P4[Phase 4<br/>Deprecate<br/>Week 11+<br/>Risk: Low]
+
+    P1 --> P2 --> P3 --> P4
+
+    Note[Old and new stacks run in parallel.<br/>Rollback possible through Phase 3.]
+
+    classDef lowrisk fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#000;
+    classDef medrisk fill:#fef3c7,stroke:#f59e0b,stroke-width:2px,color:#000;
+    classDef note fill:#f1f5f9,stroke:#64748b,stroke-width:1px,color:#000;
+
+    class P1,P4 lowrisk;
+    class P2,P3 medrisk;
+    class Note note;
+```
 
 1. **Provision New Stacks:** Create the BU-aligned stacks via Terraform.
 2. **Update Collectors:** Shift telemetry ingestion endpoints from the old per-product stacks to the new BU stacks, enforcing label injection (`product`, `env`, `bu`) at the collector level.
