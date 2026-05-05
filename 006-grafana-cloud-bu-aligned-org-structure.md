@@ -159,20 +159,20 @@ graph TD
     A --> E[Stack: AZR-C03-TCMG-0001 <br> TCM]
     A --> F[Stack: AZR-C03-CORN-0001 <br> Cornerstone & SES]
     
-    B --> B1(📁 Product: LaserPro)
-    B --> B2(📁 Product: LoanIQ)
+    B --> B1(Product: LaserPro)
+    B --> B2(Product: LoanIQ)
     
-    C --> C1(📁 Product: Pay2Go)
-    C --> C2(📁 Product: GlobalPay)
+    C --> C1(Product: Pay2Go)
+    C --> C2(Product: GlobalPay)
     
-    D --> D1(📁 Product: FusionBank)
-    D --> D2(📁 Product: Equation)
+    D --> D1(Product: FusionBank)
+    D --> D2(Product: Equation)
     
-    E --> E1(📁 Product: Kondor)
-    E --> E2(📁 Product: Front Arena)
+    E --> E1(Product: Kondor)
+    E --> E2(Product: Front Arena)
     
-    F --> F1(📁 Product: Cornerstone)
-    F --> F2(📁 Product: SES)
+    F --> F1(Product: Cornerstone)
+    F --> F2(Product: SES)
 ```
 
 Within each BU stack, Products are segregated into **Folders**. This addresses the operational concerns of v1 while satisfying all isolation requirements:
