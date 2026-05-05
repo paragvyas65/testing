@@ -164,6 +164,15 @@ graph TD
     
     C --> C1(📁 Product: Pay2Go)
     C --> C2(📁 Product: GlobalPay)
+    
+    D --> D1(📁 Product: FusionBank)
+    D --> D2(📁 Product: Equation)
+    
+    E --> E1(📁 Product: Kondor)
+    E --> E2(📁 Product: Front Arena)
+    
+    F --> F1(📁 Product: Cornerstone)
+    F --> F2(📁 Product: SES)
 ```
 
 Within each BU stack, Products are segregated into **Folders**. This addresses the operational concerns of v1 while satisfying all isolation requirements:
